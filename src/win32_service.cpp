@@ -91,10 +91,10 @@ u32 help(wch *svcName, wch *helpArg, u32 err)
 }   // help
 
 
-void setServiceParameters(DWORD traceLevel, DWORD pollingInterval)
+void
+setServiceParameters(DWORD traceLevel, DWORD pollingInterval)
 {
     HKEY    servicesKey, svcKey, paramKey;
-
     LONG        st;
 
     // Get the polling interval from the registry.

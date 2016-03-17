@@ -16,7 +16,7 @@
 #include "messages.h"
 
 
-// A testable class that controls a Windows service (Win32Service object).
+// A class that controls a Windows service (Win32Service object).
 template <class Service>
 class Win32ServiceCtrlT
 {
@@ -34,7 +34,6 @@ public:
 
 
     Win32ServiceCtrlT(Win32Service& win32Svc);
-    ~Win32ServiceCtrlT();
 
     DWORD startService();
     DWORD stopService();
@@ -73,13 +72,6 @@ Win32ServiceCtrlT<T>::Win32ServiceCtrlT(Win32Service& win32Svc)
     lastError = GetLastError();
 }
 
-template <class T>
-Win32ServiceCtrlT<T>::~Win32ServiceCtrlT()
-{
-    ;
-}
-
-
 // Open a handle to the Windows service
 template <class T>
 DWORD Win32ServiceCtrlT<T>::openService()
@@ -94,7 +86,7 @@ DWORD Win32ServiceCtrlT<T>::openService()
 
     if (m_hSCM != 0)
     {
-        // egen_trace(EGEN_TRACE_ANNOYING, "Opened the Windows Service Control Manager (handle=0x%08x)", m_hSCM);
+        // log_trace(LOG_TRACE_ANNOYING, "Opened the Windows Service Control Manager (handle=0x%08x)", m_hSCM);
         if (0 == m_hService)
         {
             // open a handle to the service
@@ -102,20 +94,20 @@ DWORD Win32ServiceCtrlT<T>::openService()
 
             if (m_hService != 0)
             {
-                // egen_trace(EGEN_TRACE_ANNOYING, "Opened service");
+                // log_trace(LOG_TRACE_ANNOYING, "Opened service");
                 result = ERROR_SUCCESS;
             }
             else
             {
                 result = ::GetLastError();
                 // We attempt to open the service during an unregister, so this isn't necessarily a bad thing
-                // egen_trace_warning("Failed to open the service: 0x%08x", result);
+                // trace_warning("Failed to open the service: 0x%08x", result);
             }
         }
         else
         {
             // already opened
-            // egen_trace(EGEN_TRACE_ANNOYING, "The service is already opened (handle=0x%08x)", m_hService);
+            // log_trace(LOG_TRACE_ANNOYING, "The service is already opened (handle=0x%08x)", m_hService);
             result = ERROR_SUCCESS;
         }
     }
@@ -123,7 +115,7 @@ DWORD Win32ServiceCtrlT<T>::openService()
     {
         // something is wrong with the SCM
         result = ::GetLastError();
-        // egen_trace_error("Failed to open the Windows Service Control Manager: 0x%08x", result);
+        // log_trace_error("Failed to open the Windows Service Control Manager: 0x%08x", result);
     }
     return result;
 }   // Win32ServiceCtrlT<T>::openService
@@ -158,62 +150,62 @@ DWORD Win32ServiceCtrlT<T>::startService()
 
     if (ERROR_SUCCESS == result)
     {
-        // egen_trace(EGEN_TRACE_LOUD, "Query service status (handle=0x%08x)", m_hService);
-        // Check the status in case the service is not stopped. 
-        if (!QueryServiceStatusEx(m_hService,                       // handle to service 
+        // log_trace(LOG_TRACE_LOUD, "Query service status (handle=0x%08x)", m_hService);
+        // Check the status in case the service is not stopped.
+        if (!QueryServiceStatusEx(m_hService,                       // handle to service
                                   SC_STATUS_PROCESS_INFO,           // information level
                                   (LPBYTE)&ss,                      // address of structure
                                   sizeof(SERVICE_STATUS_PROCESS),   // size of structure
                                   &dwBytesNeeded))                  // size needed if buffer is too small
         {
             result = GetLastError();
-            // egen_trace_error("QueryServiceStatusEx failed: %d", result);
+            // log_trace_error("QueryServiceStatusEx failed: %d", result);
         }
         else
         {
-            // egen_trace(EGEN_TRACE_INFO, "Service state = %d", ss.dwCurrentState);
-            // egen_trace(EGEN_TRACE_LOUD, "Service wait hint = %dms", ss.dwWaitHint);
+            // log_trace(LOG_TRACE_INFO, "Service state = %d", ss.dwCurrentState);
+            // log_trace(LOG_TRACE_LOUD, "Service wait hint = %dms", ss.dwWaitHint);
             // Check if the service is already running.
             if(ss.dwCurrentState != SERVICE_STOPPED
                && ss.dwCurrentState != SERVICE_STOP_PENDING)
             {
                 // no need to start a service that's running
-                // egen_trace(EGEN_TRACE_LOUD, "Service is already running (state=%d)", ss.dwCurrentState);
+                // log_trace(LOG_TRACE_LOUD, "Service is already running (state=%d)", ss.dwCurrentState);
                 result = ERROR_SUCCESS;
             }
             else
             {
                 if (ss.dwCurrentState != SERVICE_STOPPED)
                 {
-                    // egen_trace(EGEN_TRACE_LOUD, "Service is not stopped (state=%d). Wait for it to stop...", ss.dwCurrentState);
+                    // log_trace(LOG_TRACE_LOUD, "Service is not stopped (state=%d). Wait for it to stop...", ss.dwCurrentState);
                     // The service could be STOPPED or STOP_PENDING. Wait to be sure it's stopped.
                     result = waitServiceStop(ss);
                 }
 
                 if (result == NO_ERROR)
                 {
-                    // egen_trace(EGEN_TRACE_LOUD, "Starting the service (handle=0x%08x)", m_hService);
+                    // log_trace(LOG_TRACE_LOUD, "Starting the service (handle=0x%08x)", m_hService);
                     // Attempt to start the service.
-                    if (FALSE == ::StartService(m_hService, // handle to service 
-                                                0,          // number of arguments 
-                                                NULL))      // no arguments 
+                    if (FALSE == ::StartService(m_hService, // handle to service
+                                                0,          // number of arguments
+                                                NULL))      // no arguments
                     {
                         result = ::GetLastError();
-                        // egen_trace_error("Service failed to start: 0x%08x", result);
+                        // log_trace_error("Service failed to start: 0x%08x", result);
                     }
                     else
                     {
-                        // egen_trace(EGEN_TRACE_LOUD, "Starting service...");
+                        // log_trace(LOG_TRACE_LOUD, "Starting service...");
                         // the service should be in the start pending state
-                        // Check the status until the service is no longer start pending. 
-                        if (!::QueryServiceStatusEx(m_hService,                     // handle to service 
+                        // Check the status until the service is no longer start pending.
+                        if (!::QueryServiceStatusEx(m_hService,                     // handle to service
                                                     SC_STATUS_PROCESS_INFO,         // info level
                                                     (LPBYTE) &ss,                   // address of structure
                                                     sizeof(SERVICE_STATUS_PROCESS), // size of structure
                                                     &dwBytesNeeded))                // if buffer too small
                         {
                             result = GetLastError();
-                            // egen_trace_error("Query service failed: 0x%08x", result);
+                            // log_trace_error("Query service failed: 0x%08x", result);
                         }
                         else
                         {
@@ -223,7 +215,7 @@ DWORD Win32ServiceCtrlT<T>::startService()
                 }
                 else
                 {
-                    // egen_trace_error("Could not stop the service (state=%d)", ss.dwCurrentState);
+                    // log_trace_error("Could not stop the service (state=%d)", ss.dwCurrentState);
                 }
             }
         }
@@ -244,7 +236,7 @@ DWORD Win32ServiceCtrlT<T>::stopService()
     {
         SERVICE_STATUS_PROCESS ss;
 
-        // egen_trace(EGEN_TRACE_LOUD, "Query service status (handle=0x%08x)", m_hService);
+        // log_trace(LOG_TRACE_LOUD, "Query service status (handle=0x%08x)", m_hService);
         // Make sure the service is not already stopped
         if (!::QueryServiceStatusEx(m_hService,
                                     SC_STATUS_PROCESS_INFO,
@@ -253,16 +245,16 @@ DWORD Win32ServiceCtrlT<T>::stopService()
                                     &dwBytesNeeded))
         {
             result = ::GetLastError();
-            // egen_trace_error("QueryServiceStatusEx failed: %d", result);
+            // log_trace_error("QueryServiceStatusEx failed: %d", result);
         }
         else if (SERVICE_STOPPED != ss.dwCurrentState)
         {
-            // egen_trace(EGEN_TRACE_LOUD, "Current state = %d", ss.dwCurrentState);
+            // log_trace(LOG_TRACE_LOUD, "Current state = %d", ss.dwCurrentState);
             // If a stop is pending, just wait for it
             if (SERVICE_STOP_PENDING == ss.dwCurrentState)
             {
                 result = waitServiceStop(ss);
-                // egen_trace(EGEN_TRACE_LOUD,
+                // log_trace(LOG_TRACE_LOUD,
                            // "Waited for stop pending transistion to stopped: result=%d, state=%d",
                            // result,
                            // ss.dwCurrentState);
@@ -273,11 +265,11 @@ DWORD Win32ServiceCtrlT<T>::stopService()
                 if (!::ControlService(m_hService, SERVICE_CONTROL_STOP, (LPSERVICE_STATUS)&ss))
                 {
                     result = ::GetLastError();
-                    // egen_trace_error("Failed to send stop control code: %d", result);
+                    // log_trace_error("Failed to send stop control code: %d", result);
                 }
                 else
                 {
-                    // egen_trace(EGEN_TRACE_LOUD, "Waiting for service to stop");
+                    // log_trace(LOG_TRACE_LOUD, "Waiting for service to stop");
                     result = waitServiceStop(ss);
                 }
             }
@@ -289,18 +281,18 @@ DWORD Win32ServiceCtrlT<T>::stopService()
 
 
 /*******************************************************************************************
- Procedure:		registerService 
- 
+ Procedure:		registerService
+
  Purpose:
 	This function is used to register the service. It first uninstalls the service in case
     there is a previous installation that points to the wrong executable.
- 
+
  Parameters:
 	svcName		- the name of the service to register
- 
+
  Return:
-	HRESULT indicating the status of the call. 
- 
+	HRESULT indicating the status of the call.
+
  Side Effects and Notes:
 	none
 *******************************************************************************************/
@@ -311,21 +303,21 @@ DWORD Win32ServiceCtrlT<T>::registerService(DWORD startType, LPCTSTR path)
 
     // Remove any previous service since it may point to the incorrect file
     result = unregisterService();
-    // egen_trace(EGEN_TRACE_LOUD, "UnregisterService returned: 0x%08x", result);
+    // log_trace(LOG_TRACE_LOUD, "UnregisterService returned: 0x%08x", result);
 
     if (0 == m_hSCM)
     {
         m_hSCM = ::OpenSCManager(0, 0, SC_MANAGER_CREATE_SERVICE);
     }
 
-    // egen_trace(EGEN_TRACE_ANNOYING, "SCM handle: 0x%08x", m_hSCM);
+    // log_trace(LOG_TRACE_ANNOYING, "SCM handle: 0x%08x", m_hSCM);
     if (m_hSCM)
     {
         result = m_win32Svc.registerService(m_hSCM, startType, path, &m_hService);
 
         if (ERROR_SUCCESS == result)
         {
-            // egen_trace(EGEN_TRACE_LOUD, "Service created");
+            // log_trace(LOG_TRACE_LOUD, "Service created");
         }
         else
         {
@@ -336,7 +328,7 @@ DWORD Win32ServiceCtrlT<T>::registerService(DWORD startType, LPCTSTR path)
     else
     {
         result = ::GetLastError();
-        // egen_trace_error("Failed to open the Service Control Manager: %d", result);
+        // log_trace_error("Failed to open the Service Control Manager: %d", result);
     }
 
     return result;
@@ -386,7 +378,7 @@ DWORD Win32ServiceCtrlT<T>::unregisterService()
         // things up. We will get here if the service isn't registered, yet.
         // Failing to unregister a service that's not registered is "okay".
         result = ERROR_SUCCESS;
-        // egen_trace(EGEN_TRACE_NOTICE, "Unregister: Service is not registered.");
+        // log_trace(LOG_TRACE_NOTICE, "Unregister: Service is not registered.");
     }
 
     return result;
@@ -397,7 +389,7 @@ template <class T>
 DWORD Win32ServiceCtrlT<T>::deleteService()
 {
     DWORD       result = ERROR_SUCCESS;
-    
+
     // Delete the service
     if (!::DeleteService(m_hService))
     {
@@ -425,7 +417,7 @@ DWORD Win32ServiceCtrlT<T>::waitServiceStart(SERVICE_STATUS_PROCESS   &ss)
     startTickCount = GetTickCount();
     dwOldCheckPoint = ss.dwCheckPoint;
 
-    // egen_trace(EGEN_TRACE_INFO, "Service wait hint is: %dms", ss.dwWaitHint);
+    // log_trace(LOG_TRACE_INFO, "Service wait hint is: %dms", ss.dwWaitHint);
     // Do not wait longer than the wait hint. A good interval is
     // one-tenth the wait hint, but no less than 1 second and no
     // more than 10 seconds.
@@ -438,34 +430,34 @@ DWORD Win32ServiceCtrlT<T>::waitServiceStart(SERVICE_STATUS_PROCESS   &ss)
     {
         dwWaitTime = 10000;
     }
-    // egen_trace(EGEN_TRACE_INFO, "Service start wait time is: %dms", dwWaitTime);
+    // log_trace(LOG_TRACE_INFO, "Service start wait time is: %dms", dwWaitTime);
 
     while (ss.dwCurrentState == SERVICE_START_PENDING
            && NO_ERROR == result)
     {
-        // egen_trace(EGEN_TRACE_LOUD, "Start pending...");
-        // egen_trace(EGEN_TRACE_ANNOYING, "Set wait time to %dms", dwWaitTime);
+        // log_trace(LOG_TRACE_LOUD, "Start pending...");
+        // log_trace(LOG_TRACE_ANNOYING, "Set wait time to %dms", dwWaitTime);
         Sleep(dwWaitTime);
 
-        // egen_trace(EGEN_TRACE_LOUD, "Query service status (handle=0x%08x)", m_hService);
+        // log_trace(LOG_TRACE_LOUD, "Query service status (handle=0x%08x)", m_hService);
         // Check the status again.
-        if (!QueryServiceStatusEx(m_hService,                       // handle to service 
+        if (!QueryServiceStatusEx(m_hService,                       // handle to service
                                   SC_STATUS_PROCESS_INFO,           // info level
                                   (LPBYTE)&ss,                      // address of structure
                                   sizeof(SERVICE_STATUS_PROCESS),   // size of structure
                                   &dwBytesNeeded))                  // if buffer too small
         {
             result = GetLastError();
-            // egen_trace_error("Query service status failed: 0x%08x", result);
+            // log_trace_error("Query service status failed: 0x%08x", result);
         }
         else if (ss.dwCurrentState == SERVICE_RUNNING)
         {
-            // egen_trace(EGEN_TRACE_NOTICE, "The service is running");
+            // log_trace(LOG_TRACE_NOTICE, "The service is running");
             result = NO_ERROR;
         }
         else if ( ss.dwCheckPoint > dwOldCheckPoint )
         {
-            // egen_trace(EGEN_TRACE_LOUD, "Updating checkpoint: %d", dwOldCheckPoint);
+            // log_trace(LOG_TRACE_LOUD, "Updating checkpoint: %d", dwOldCheckPoint);
             // Continue to wait and check.
             startTickCount = GetTickCount();
             dwOldCheckPoint = ss.dwCheckPoint;
@@ -473,15 +465,15 @@ DWORD Win32ServiceCtrlT<T>::waitServiceStart(SERVICE_STATUS_PROCESS   &ss)
         else
         {
             DWORD tickCount = GetTickCount() - startTickCount;
-            // egen_trace(EGEN_TRACE_LOUD, "Checking the tick counts (%d, %d)", startTickCount, tickCount);
+            // log_trace(LOG_TRACE_LOUD, "Checking the tick counts (%d, %d)", startTickCount, tickCount);
             if(tickCount > ss.dwWaitHint)
             {
                 result = WAIT_TIMEOUT;
-                // egen_trace_warning("The service failed to start after %d ticks (max=%d)", tickCount, ss.dwWaitHint);
+                // trace_warning("The service failed to start after %d ticks (max=%d)", tickCount, ss.dwWaitHint);
             }
             else
             {
-                // egen_trace(EGEN_TRACE_ANNOYING, "Still waiting for service to start...");
+                // log_trace(LOG_TRACE_ANNOYING, "Still waiting for service to start...");
             }
         }
     }
@@ -503,13 +495,13 @@ DWORD Win32ServiceCtrlT<T>::waitServiceStop(SERVICE_STATUS_PROCESS &ss)
     startTickCount = GetTickCount();
     dwOldCheckPoint = ss.dwCheckPoint;
 
-    // egen_trace(EGEN_TRACE_LOUD, "Current state = %d", ss.dwCurrentState);
+    // log_trace(LOG_TRACE_LOUD, "Current state = %d", ss.dwCurrentState);
     // Wait for the service to stop.
     while (ss.dwCurrentState != SERVICE_STOPPED
            && NO_ERROR == result)
     {
-        // Do not wait longer than the wait hint. A good interval is 
-        // one-tenth of the wait hint but not less than 1 second  
+        // Do not wait longer than the wait hint. A good interval is
+        // one-tenth of the wait hint but not less than 1 second
         // and not more than 10 seconds.
         dwWaitTime = ss.dwWaitHint / 10;
 
@@ -521,31 +513,31 @@ DWORD Win32ServiceCtrlT<T>::waitServiceStop(SERVICE_STATUS_PROCESS &ss)
         {
             dwWaitTime = 10000;
         }
-        // egen_trace(EGEN_TRACE_LOUD, "Set wait time to %dms", dwWaitTime);
+        // log_trace(LOG_TRACE_LOUD, "Set wait time to %dms", dwWaitTime);
 
-        // egen_trace(EGEN_TRACE_LOUD, "Set wait time to %dms", dwWaitTime);
+        // log_trace(LOG_TRACE_LOUD, "Set wait time to %dms", dwWaitTime);
         Sleep(dwWaitTime);
 
-        // egen_trace(EGEN_TRACE_LOUD, "Query service status (handle=0x%08x)", m_hService);
+        // log_trace(LOG_TRACE_LOUD, "Query service status (handle=0x%08x)", m_hService);
         // Check the status until the service is no longer stop pending.
-        if (!QueryServiceStatusEx(m_hService,                       // handle to service 
+        if (!QueryServiceStatusEx(m_hService,                       // handle to service
                                   SC_STATUS_PROCESS_INFO,           // information level
                                   (LPBYTE)&ss,                      // address of structure
                                   sizeof(SERVICE_STATUS_PROCESS),   // size of structure
                                   &dwBytesNeeded))                  // size needed if buffer is too small
         {
             result = GetLastError();
-            // egen_trace_error("Query service failed: 0x%08x", result);
+            // log_trace_error("Query service failed: 0x%08x", result);
         }
         else if (SERVICE_STOPPED == ss.dwCurrentState)
         {
-            // egen_trace(EGEN_TRACE_NOTICE, "The service is stopped");
+            // log_trace(LOG_TRACE_NOTICE, "The service is stopped");
             result = NO_ERROR;
         }
         else if ( ss.dwCheckPoint > dwOldCheckPoint )
         {
             // Continue to wait and check.
-            // egen_trace(EGEN_TRACE_LOUD, "Updating checkpoint: %d", dwOldCheckPoint);
+            // log_trace(LOG_TRACE_LOUD, "Updating checkpoint: %d", dwOldCheckPoint);
             startTickCount = GetTickCount();
             dwOldCheckPoint = ss.dwCheckPoint;
         }
@@ -555,11 +547,11 @@ DWORD Win32ServiceCtrlT<T>::waitServiceStop(SERVICE_STATUS_PROCESS &ss)
             if(tickCount > ss.dwWaitHint)
             {
                 result = WAIT_TIMEOUT;
-                // egen_trace_warning("Service failed to stop after %d ticks (max=%d)", tickCount, ss.dwWaitHint);
+                // trace_warning("Service failed to stop after %d ticks (max=%d)", tickCount, ss.dwWaitHint);
             }
             else
             {
-                // egen_trace(EGEN_TRACE_ANNOYING, "Still waiting for service to stop...");
+                // log_trace(LOG_TRACE_ANNOYING, "Still waiting for service to stop...");
             }
         }
     }

@@ -116,8 +116,6 @@ class AppT
 {
 private:
     OverlappedPipe  m_op;
-    //HANDLE          m_pipe;
-    //OVERLAPPED      m_overlappedConnect;
     DWORD           m_wait;
     HANDLE          m_connectThread;
 
@@ -206,7 +204,7 @@ protected:
     // Protected to ensure it's safe to make the destructor non-virtual. It's impossible to call delete on a
     // pointer to this class. The delete keyword can only be applied to pointers of derived classes (such as
     // Win32ServiceT<AppT>).
-    ~AppT();
+    ~AppT() {}
     const std::wstring          m_serviceName;
     const std::wstring          m_displayName;
     const std::wstring          m_description;
@@ -231,13 +229,6 @@ AppT<T>::AppT()
     m_op.pipe = INVALID_HANDLE_VALUE;
     m_op.overlapped = {};
     m_op.pendingIO = FALSE;
-}
-
-
-template <class T>
-AppT<T>::~AppT()
-{
-    ;
 }
 
 

@@ -144,19 +144,20 @@ pushd "%BUILD_PATH%"
 :CLEAN
 if "%clean%"=="T" (
   if "%verbose%"=="T" echo "Cleaning all projects"
-  del *.obj *.pdb *.map *.exe *.res *.lib "%PROJECT_PATH%\src\app_messages.h" > NUL 2> NUL
+  del /Q * > NUL 2> NUL
 )
 
 
 :WIN32_SERVICE
 if "%win32Service%"=="T" (
   if "%verbose%"=="T" echo "Building the Win32 service"
-  REM Build the message header
-  mc -h ..\..\src "%PROJECT_PATH%\src\app_messages.mc"
+  REM Build the message header. Note that the current directory is %BUILD_PATH%, so the command-line option "-h .\" will cause
+  REM mc.exe to create the .h and .BIN files in the build directory.
+  mc.exe -h .\ "%PROJECT_PATH%\src\wpce_messages.mc"
 
   REM Build the service along with its built-in control tool that runs from the command line. When run from
   REM the command line, you have the option to  register, unregister, start or stop the service.
-  cl %CommonCompilerFlagsFinal%  "%PROJECT_PATH%\src\win32_service.cpp" ^
+  cl %CommonCompilerFlagsFinal%  /I"%BUILD_PATH%" "%PROJECT_PATH%\src\win32_service.cpp" ^
      /Fmservice.map /Feservice.exe /link %CommonLinkerFlagsFinal%
 )
 

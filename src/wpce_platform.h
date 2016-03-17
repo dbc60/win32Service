@@ -19,7 +19,7 @@ private:
 
     void openPlatformHandle();
     void closePlatformHandle();
-    
+
 public:
     // Implement the explicit constructor in the per-platform .cpp file (win32_app.cpp for the Win32
     // implementation)
@@ -29,7 +29,7 @@ public:
         void *ptr = 0;
         handle = ptr;
     }
-    
+
     FileHandle() : handle(nullptr)
     {
         void *ptr = 0;
@@ -75,7 +75,7 @@ public:
             this->openPlatformHandle();
         }
     }
-    
+
     void closeFile()
     {
         if (handle)
@@ -87,11 +87,11 @@ public:
     bool isOpen()
     {
         bool result = (handle != nullptr);
-        
+
         return result;
     }
 
-    
+
     const std::wstring& getFileName()
     {
         return fileName;
@@ -104,7 +104,7 @@ class BasisDB
 {
 private:
     FileHandle handleToDB;
-    
+
 public:
     // Create a Basis database object
     explicit BasisDB(std::wstring const& dbFileName)
@@ -135,7 +135,7 @@ public:
             // Pilfer (move) the other's resources
             handleToDB = std::move(other.handleToDB);
         }
-        
+
         return *this;
     }
 };

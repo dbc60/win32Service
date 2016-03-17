@@ -53,8 +53,6 @@ public:
 
     // Initialize with an object that provides the actual service
     Win32ServiceT();
-    ~Win32ServiceT();
-
 
     void WINAPI svcMain(DWORD dwArgc, LPWSTR *lpszArgv);
     DWORD WINAPI svcCtrlHandler(DWORD  dwControl,
@@ -71,9 +69,6 @@ public:
                             const std::wstring& svcDescription);
     void  svcReportEvent(WORD eventType, DWORD msgID, DWORD err);
     void  svcReportEvent(WORD eventType, DWORD msgID, const std::wstring &msg);
-    DWORD svcReportStatus(DWORD dwCurrentState,
-                          DWORD dwWin32ExitCode,
-                          DWORD dwWaitHint);
     DWORD WINAPI startWin32Service();
     DWORD WINAPI registerService(SC_HANDLE hSCM, DWORD startType, LPCTSTR path, SC_HANDLE *service);
     SC_HANDLE WINAPI openService(SC_HANDLE hSCM);
@@ -84,13 +79,16 @@ private:
     SERVICE_STATUS_HANDLE   m_svcStatusHandle;
     SERVICE_STATUS          m_svcStatus;
     HANDLE                  m_stopEvent;
-    
+
 
     // Neither the copy constructor nor the assignment operator are implemented
     Win32ServiceT(const Win32ServiceT& other);
     Win32ServiceT& operator=(const Win32ServiceT& rhs);
 
     DWORD registerEventLog(const TCHAR *path) const;
+    DWORD svcReportStatus(DWORD dwCurrentState,
+                          DWORD dwWin32ExitCode,
+                          DWORD dwWaitHint);
 };  // class Win32ServiceT
 
 
@@ -101,16 +99,9 @@ Win32ServiceT<T>::Win32ServiceT()
 {
     ::ZeroMemory(&m_svcStatus, sizeof m_svcStatus);
     // Set the static pointer to this service so the static functions
-    // Win32ServiceT<T>::svcMainWrapper and 
+    // Win32ServiceT<T>::svcMainWrapper and
     // Win32ServiceT<T>::svcCtrlHandlerWrapper can find this object.
     m_win32SvcPtr = this;
-}
-
-
-template <class T>
-Win32ServiceT<T>::~Win32ServiceT()
-{
-    ;
 }
 
 
@@ -148,7 +139,7 @@ DWORD Win32ServiceT<T>::registerEventLog(const TCHAR *path) const
                 | EVENTLOG_INFORMATION_TYPE
                 | EVENTLOG_WARNING_TYPE;
             // Setup the event log
-            // egen_trace(EGEN_TRACE_LOUD, "Executable path is '%S'", path);
+            // log_trace(LOG_TRACE_LOUD, "Executable path is '%S'", path);
             ::RegSetValueEx(svcEventLogKey,
                             TEXT("EventMessageFile"),
                             0,
@@ -180,7 +171,9 @@ DWORD Win32ServiceT<T>::registerEventLog(const TCHAR *path) const
 //   Logs messages to the event log
 //
 // Parameters:
-//   szFunction - name of function that failed
+//   eventType -
+//   msgID
+//   err
 //
 // Return value:
 //   None
@@ -206,10 +199,10 @@ void Win32ServiceT<T>::svcReportEvent(WORD eventType, DWORD msgID, DWORD err)
                                     sizeof buf,
                                     L"0x%08x",
                                     err);
-        // egen_trace(EGEN_TRACE_LOUD, "Reporting error: 0x%08x to the Windows Event Log", err);
+        // log_trace(LOG_TRACE_LOUD, "Reporting error: 0x%08x to the Windows Event Log", err);
         if (SUCCEEDED(hResult))
         {
-            // egen_trace(EGEN_TRACE_LOUD,
+            // log_trace(LOG_TRACE_LOUD,
             // "Service=%S, eventType=%d, category=%d, msgID=0x%08x, count=%d, buf='%S'",
             // m_serviceName.c_str(),
             // (DWORD)eventType,
@@ -235,7 +228,7 @@ void Win32ServiceT<T>::svcReportEvent(WORD eventType, DWORD msgID, DWORD err)
         }
         else
         {
-            // egen_trace_warning("Failed to convert error %d to a string", err);
+            // trace_warning("Failed to convert error %d to a string", err);
         }
     }
 }   // Win32ServiceT<T>::svcReportEvent
@@ -272,7 +265,7 @@ void Win32ServiceT<T>::svcReportEvent(WORD eventType, DWORD msgID, const std::ws
     {
 
         ::wcscpy(buf, msg.c_str());
-        // egen_trace(EGEN_TRACE_LOUD,
+        // log_trace(LOG_TRACE_LOUD,
         // "Service=%S, eventType=%d, category=%d, msgID=0x%08x, count=%d, buf='%S'",
         // m_serviceName.c_str(),
         // (DWORD)eventType,
@@ -300,15 +293,15 @@ void Win32ServiceT<T>::svcReportEvent(WORD eventType, DWORD msgID, const std::ws
 
 
 //
-// Purpose: 
+// Purpose:
 //   Sets the current service status and reports it to the SCM.
 //
 // Parameters:
 //   dwCurrentState - The current state (see SERVICE_STATUS)
 //   dwWin32ExitCode - The system error code
-//   dwWaitHint - Estimated time for pending operation, 
+//   dwWaitHint - Estimated time for pending operation,
 //     in milliseconds
-// 
+//
 // Return value:
 //   None
 //
@@ -373,7 +366,7 @@ DWORD Win32ServiceT<T>::svcReportStatus(DWORD    dwCurrentState,
 //     that called the StartService function to start the service.
 //
 //  Description
-//      
+//
 //
 // Return value:
 //   None.
@@ -383,7 +376,7 @@ void WINAPI Win32ServiceT<T>::svcMain(DWORD dwArgc, LPWSTR *lpszArgv)
 {
     DWORD   st = ERROR_SUCCESS;
 
-    // egen_trace(EGEN_TRACE_TRACE, "Starting the service");
+    // log_trace(LOG_TRACE_TRACE, "Starting the service");
     m_svcStatus.dwCurrentState = SERVICE_STOPPED;
     m_svcStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
     m_svcStatus.dwServiceSpecificExitCode = 0;
@@ -400,7 +393,7 @@ void WINAPI Win32ServiceT<T>::svcMain(DWORD dwArgc, LPWSTR *lpszArgv)
     {
         // Report initial status to the SCM
         st = svcReportStatus(SERVICE_START_PENDING, NO_ERROR, SVC_WAIT_HINT);
-        // egen_trace(EGEN_TRACE_TRACE, "Registered service control handler");
+        // log_trace(LOG_TRACE_TRACE, "Registered service control handler");
 
         if (ERROR_SUCCESS == st)
         {
@@ -408,7 +401,7 @@ void WINAPI Win32ServiceT<T>::svcMain(DWORD dwArgc, LPWSTR *lpszArgv)
             svcReportEvent(EVENTLOG_INFORMATION_TYPE,
                            SVC_MSG_REPORTED_START_PENDING,
                            0);
-            // egen_trace(EGEN_TRACE_TRACE, "Reported status service start pending");
+            // log_trace(LOG_TRACE_TRACE, "Reported status service start pending");
             // Create an event. The control handler function, svcCtrlHandlerWrapper,
             // signals this event when it receives the stop control code.
             m_stopEvent = ::CreateEvent(NULL,    // default security attributes
@@ -418,7 +411,7 @@ void WINAPI Win32ServiceT<T>::svcMain(DWORD dwArgc, LPWSTR *lpszArgv)
 
             if (NULL != m_stopEvent)
             {
-                // egen_trace(EGEN_TRACE_TRACE, "Created stop event");
+                // log_trace(LOG_TRACE_TRACE, "Created stop event");
                 svcReportEvent(EVENTLOG_INFORMATION_TYPE,
                                SVC_MSG_INITIALIZING,
                                st);
@@ -427,7 +420,7 @@ void WINAPI Win32ServiceT<T>::svcMain(DWORD dwArgc, LPWSTR *lpszArgv)
                 st = initService();
                 if (ERROR_SUCCESS == st)
                 {
-                    // egen_trace(EGEN_TRACE_TERSE, "Service successfully initialized");
+                    // log_trace(LOG_TRACE_TERSE, "Service successfully initialized");
                     svcReportEvent(EVENTLOG_INFORMATION_TYPE,
                                    SVC_MSG_INITIALIZED,
                                    st);
@@ -437,7 +430,7 @@ void WINAPI Win32ServiceT<T>::svcMain(DWORD dwArgc, LPWSTR *lpszArgv)
                     if (SUCCEEDED(st))
                     {
                         st = svcReportStatus(SERVICE_RUNNING, NO_ERROR, 0);
-                        // egen_trace(EGEN_TRACE_NOTICE, "%ws is running", m_serviceName.c_str());
+                        // log_trace(LOG_TRACE_NOTICE, "%ws is running", m_serviceName.c_str());
                         if (ERROR_SUCCESS == st)
                         {
                             // report to the event log and trace log that the service is running
@@ -449,7 +442,7 @@ void WINAPI Win32ServiceT<T>::svcMain(DWORD dwArgc, LPWSTR *lpszArgv)
                              * wait here for a stop event.
                              */
                             ::WaitForSingleObject(m_stopEvent, INFINITE);
-                            // egen_trace(EGEN_TRACE_NOTICE, "%ws stopped", m_serviceName.c_str());
+                            // log_trace(LOG_TRACE_NOTICE, "%ws stopped", m_serviceName.c_str());
                             svcReportEvent(EVENTLOG_SUCCESS,
                                            SVC_MSG_STOPPED,
                                            0);
@@ -458,7 +451,7 @@ void WINAPI Win32ServiceT<T>::svcMain(DWORD dwArgc, LPWSTR *lpszArgv)
                         else
                         {
                             stop();
-                            // egen_trace_error("Failed to report service running: %d", st);
+                            // log_trace_error("Failed to report service running: %d", st);
 
                             // TODO(doug): find out why SVCJ_MSG_START_FAILURE nad
                             // SVC_MSG_INITIALIZATION_FAILURE have to be cast to DWORD while other values, like
@@ -471,7 +464,7 @@ void WINAPI Win32ServiceT<T>::svcMain(DWORD dwArgc, LPWSTR *lpszArgv)
                     }
                     else
                     {
-                        // egen_trace_error("Failed to start service: 0x%08x", st);
+                        // log_trace_error("Failed to start service: 0x%08x", st);
                         svcReportEvent(EVENTLOG_ERROR_TYPE,
                                        (DWORD)SVC_MSG_START_FAILURE,
                                        st);
@@ -489,19 +482,19 @@ void WINAPI Win32ServiceT<T>::svcMain(DWORD dwArgc, LPWSTR *lpszArgv)
             else
             {
                 st = ::GetLastError();
-                // egen_trace_error("Reporting status service start pending failed: %d", st);
+                // log_trace_error("Reporting status service start pending failed: %d", st);
                 svcReportStatus(SERVICE_STOPPED, st, 0);
             }
         }
         else
         {
-            // egen_trace_error("Failed to report service service start-pending: %d", st);
+            // log_trace_error("Failed to report service service start-pending: %d", st);
         }
     }
     else
     {
         st = GetLastError();
-        // egen_trace_error("Failed register service: %d", st);
+        // log_trace_error("Failed register service: %d", st);
     }
 }   // Win32ServiceT<T>::svcMain
 
@@ -533,12 +526,12 @@ DWORD WINAPI Win32ServiceT<T>::svcCtrlHandler(DWORD   dwControl,
         {
             if (SERVICE_CONTROL_PRESHUTDOWN == dwControl)
             {
-                // egen_trace(EGEN_TRACE_INFO, "Preshutdown event received");
+                // log_trace(LOG_TRACE_INFO, "Preshutdown event received");
                 st = svcCtrlPreShutdown(dwEventType, lpEventData, lpContext);
             }
             else
             {
-                // egen_trace(EGEN_TRACE_INFO, "Shutdown event received");
+                // log_trace(LOG_TRACE_INFO, "Shutdown event received");
                 st = svcCtrlShutdown(dwEventType, lpEventData, lpContext);
             }
 
@@ -553,7 +546,7 @@ DWORD WINAPI Win32ServiceT<T>::svcCtrlHandler(DWORD   dwControl,
 
         case SVC_CTRL_UNINSTALL_SERVICE:
         {
-            // egen_trace(EGEN_TRACE_INFO, "Uninstall service event received");
+            // log_trace(LOG_TRACE_INFO, "Uninstall service event received");
 
             svcReportStatus(SERVICE_STOP_PENDING, st, SVC_WAIT_HINT);
             svcReportEvent(EVENTLOG_SUCCESS, SVC_MSG_UNINSTALL_SERVICE, 0);
@@ -569,7 +562,7 @@ DWORD WINAPI Win32ServiceT<T>::svcCtrlHandler(DWORD   dwControl,
         case SERVICE_CONTROL_STOP:
             // The service is being stopped (no OS shutdown)
         {
-            // egen_trace(EGEN_TRACE_INFO, "Stop event received");
+            // log_trace(LOG_TRACE_INFO, "Stop event received");
 
             svcReportStatus(SERVICE_STOP_PENDING, st, SVC_WAIT_HINT);
             svcReportEvent(EVENTLOG_INFORMATION_TYPE, SVC_MSG_STOPPING, 0);
@@ -584,7 +577,7 @@ DWORD WINAPI Win32ServiceT<T>::svcCtrlHandler(DWORD   dwControl,
 
         case SERVICE_CONTROL_PAUSE:
         {
-            // egen_trace(EGEN_TRACE_INFO, "Pause service event received");
+            // log_trace(LOG_TRACE_INFO, "Pause service event received");
 
             svcReportStatus(SERVICE_PAUSE_PENDING, st, SVC_WAIT_HINT);
             svcReportEvent(EVENTLOG_SUCCESS, SVC_MSG_PAUSED, 0);
@@ -596,7 +589,7 @@ DWORD WINAPI Win32ServiceT<T>::svcCtrlHandler(DWORD   dwControl,
 
         case SERVICE_CONTROL_CONTINUE:
         {
-            // egen_trace(EGEN_TRACE_INFO, "Continue service event received");
+            // log_trace(LOG_TRACE_INFO, "Continue service event received");
 
             svcReportStatus(SERVICE_CONTINUE_PENDING, st, SVC_WAIT_HINT);
             // Ensure the reconnect event is reset
@@ -626,7 +619,7 @@ DWORD WINAPI Win32ServiceT<T>::svcCtrlHandler(DWORD   dwControl,
             {
                 case PBT_APMRESUMEAUTOMATIC:
                 {
-                    // egen_trace(EGEN_TRACE_INFO, "Resume power event received");
+                    // log_trace(LOG_TRACE_INFO, "Resume power event received");
 
                     svcReportStatus(SERVICE_CONTINUE_PENDING, st, SVC_WAIT_HINT);
                     st = svcCtrlPowerResume(lpEventData, lpContext);
@@ -638,7 +631,7 @@ DWORD WINAPI Win32ServiceT<T>::svcCtrlHandler(DWORD   dwControl,
 
                 case PBT_APMSUSPEND:
                 {
-                    // egen_trace(EGEN_TRACE_INFO, "Suspend power event received");
+                    // log_trace(LOG_TRACE_INFO, "Suspend power event received");
 
                     svcReportStatus(SERVICE_PAUSE_PENDING, st, SVC_POWER_SUSPEND_HINT);
                     svcReportEvent(EVENTLOG_SUCCESS, SVC_MSG_POWER_EVENT_SUSPEND, 0);
@@ -649,7 +642,7 @@ DWORD WINAPI Win32ServiceT<T>::svcCtrlHandler(DWORD   dwControl,
                 break;
 
                 default:
-                    // egen_trace(EGEN_TRACE_INFO, "Unimplemented power event (%d) received",
+                    // log_trace(LOG_TRACE_INFO, "Unimplemented power event (%d) received",
                     // dwEventType);
 
                     st = svcCtrlPowerDefault(dwEventType, lpEventData, lpContext);
@@ -660,13 +653,13 @@ DWORD WINAPI Win32ServiceT<T>::svcCtrlHandler(DWORD   dwControl,
         break;
 
         case SERVICE_CONTROL_INTERROGATE:
-            // egen_trace(EGEN_TRACE_INFO, "Interrogate event received");
+            // log_trace(LOG_TRACE_INFO, "Interrogate event received");
 
             svcReportStatus(m_svcStatus.dwCurrentState, st, 0);
             break;
 
         default:
-            // egen_trace(EGEN_TRACE_INFO, "Received control event %d. Passing to default handler", dwControl);
+            // log_trace(LOG_TRACE_INFO, "Received control event %d. Passing to default handler", dwControl);
             st = svcCtrlDefault(dwControl,
                                 dwEventType,
                                 lpEventData,
@@ -681,7 +674,7 @@ DWORD WINAPI Win32ServiceT<T>::svcCtrlHandler(DWORD   dwControl,
 template <class T>
 void WINAPI Win32ServiceT<T>::svcMainWrapper(DWORD dwArgc, LPWSTR *lpszArgv)
 {
-    // egen_trace(EGEN_TRACE_NOTICE, "Entered %S", (dwArgc >= 1 ? *lpszArgv : L"service"));
+    // log_trace(LOG_TRACE_NOTICE, "Entered %S", (dwArgc >= 1 ? *lpszArgv : L"service"));
     m_win32SvcPtr->svcMain(dwArgc, lpszArgv);
 }
 
@@ -689,7 +682,7 @@ void WINAPI Win32ServiceT<T>::svcMainWrapper(DWORD dwArgc, LPWSTR *lpszArgv)
 //
 // svcCtrlHandlerWrapper
 //
-// This is a static member function, so we can pass its address to 
+// This is a static member function, so we can pass its address to
 // RegisterServiceCtrlHandlerEx. This way data is forwarded to the service-
 // specific svcCtrlHandler function.
 template <class T>
@@ -720,26 +713,26 @@ DWORD WINAPI Win32ServiceT<T>::startWin32Service()
 {
     DWORD result;
 
-    SERVICE_TABLE_ENTRY DispatchTable[] = 
+    SERVICE_TABLE_ENTRY DispatchTable[] =
         {
             {(LPWSTR)m_serviceName.c_str(), svcMainWrapper},
             {NULL, NULL}
         };
 
-    // StartServiceCtrlDispatcher returns when the service has stopped. 
+    // StartServiceCtrlDispatcher returns when the service has stopped.
     // The process should simply terminate when the call returns.
-    // egen_trace(EGEN_TRACE_NOTICE, "Starting %ws", m_serviceName.c_str());
-    if (FALSE == ::StartServiceCtrlDispatcher(DispatchTable)) 
+    // log_trace(LOG_TRACE_NOTICE, "Starting %ws", m_serviceName.c_str());
+    if (FALSE == ::StartServiceCtrlDispatcher(DispatchTable))
     {
         result = ::GetLastError();
-        // egen_trace_error("Start service control dispatcher failed: %d", result);
+        // log_trace_error("Start service control dispatcher failed: %d", result);
     }
     else
     {
         result = NO_ERROR;
     }
 
-    // egen_trace(EGEN_TRACE_NOTICE, "%ws exiting: %d", m_serviceName.c_str(), result);
+    // log_trace(LOG_TRACE_NOTICE, "%ws exiting: %d", m_serviceName.c_str(), result);
 
     return result;
 }
@@ -796,7 +789,7 @@ DWORD WINAPI Win32ServiceT<T>::registerService(SC_HANDLE hSCM, DWORD startType, 
     else
     {
         result = ::GetLastError();
-        // egen_trace_error("Failed to create service. Error code: %d", result);
+        // log_trace_error("Failed to create service. Error code: %d", result);
     }
 
     return result;
