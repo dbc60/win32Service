@@ -48,6 +48,7 @@ class Win32ServiceT : public Service
 public:
     typedef typename Service::Config        Config;
     typedef typename Config::Win32Service   Win32Service;
+    typedef typename Config::Logger         Logger;
 
     const DWORD      m_acceptedControls;
 
@@ -90,6 +91,7 @@ private:
     SERVICE_STATUS_HANDLE   m_svcStatusHandle;
     SERVICE_STATUS          m_svcStatus;
     HANDLE                  m_stopEvent;
+    Logger                  m_logger;
 
     DWORD registerEventLog(const TCHAR *path) const;
 };  // class Win32ServiceT

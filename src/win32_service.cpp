@@ -35,7 +35,6 @@ enum Tracing
 // Specify the default log/trace level
 #define DEFAULT_TRACE_LEVEL TRACE_INFO
 
-
 u32 usage(wch *svcName, u32 err)
 {
 	std::wcout << L"Usage: " << svcName << L" COMMAND ..." << std::endl;

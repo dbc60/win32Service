@@ -150,6 +150,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\src\easyloggingT.cpp" />
+    <ClCompile Include="..\..\..\src\win32_appT.cpp" />
     <ClCompile Include="..\..\..\src\win32_service.cpp" />
   </ItemGroup>
   <ItemGroup>
