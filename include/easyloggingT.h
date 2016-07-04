@@ -14,5 +14,5 @@ public:
 
 template <class T>
 EasyLoggingT<T>::EasyLoggingT() {
-
+    /// @todo doug: initialize logger here
 }
