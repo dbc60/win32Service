@@ -23,9 +23,6 @@ bld/
 [Bb]in/
 [Oo]bj/
 
-# Visual Studio 2015 cache/options directory
-.vs/
-
 # MSTest test Results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
@@ -79,6 +76,10 @@ ipch/
 *.opensdf
 *.sdf
 *.cachefile
+
+# Visual Studio 2015 cache/options directory and DB
+.vs/
+*.VC.db
 
 # Visual Studio profiler
 *.psess
@@ -217,3 +218,6 @@ ModelManifest.xml
 *.bin
 build/vs2015/**/*.rc
 build/vs2015/**/*.h
+
+# Visual Studio Code
+.vscode/

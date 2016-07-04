@@ -1,7 +1,13 @@
 ###############################################################################
 # Set default behavior to automatically normalize line endings.
 ###############################################################################
-* text=auto
+#* text=auto
+
+# Don't screw with line endings. They should be LF as much as possible.
+autocrlf=false
+.h text eol=lf
+.cpp text eol=lf
+
 
 ###############################################################################
 # Set default behavior for command prompt diff.

@@ -8,6 +8,7 @@
 #include "win32_appT.h"
 #include "win32_serviceT.h"
 #include "win32_serviceCtrlT.h"
+#include "easyloggingT.h"
 
 
 struct ServiceConfig
@@ -16,6 +17,7 @@ struct ServiceConfig
     typedef AppT<Config>                Service;
     typedef Win32ServiceT<Service>      Win32Service;
     typedef Win32ServiceCtrlT<Service>  Win32ServiceCtrl;
+    typedef EasyLoggingT<Config>        Logger;
 };
 
 typedef ServiceConfig::Service            Service;

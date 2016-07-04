@@ -32,10 +32,13 @@
     <ClInclude Include="..\..\..\src\win32_appT.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\win32_serviceCtrlT.h">
+    <ClInclude Include="..\..\..\include\win32_serviceCtrlT.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\win32_serviceT.h">
+    <ClInclude Include="..\..\..\include\win32_serviceT.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\easyloggingT.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

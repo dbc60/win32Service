@@ -1,4 +1,5 @@
-#if !defined(WIN32_SERVICECTRLT_H)
+#pragma once
+
 /* ========================================================================
    Author: Douglas B. Cuthbertson
    (C) Copyright 2015 by Douglas B. Cuthbertson. All Rights Reserved.
@@ -12,13 +13,57 @@
 //
 // The funproject-messages.h would be generated from, say, funproject-messages.mc
 // by the Microsoft message compiler (mc.exe).
+
 #include <Windows.h>
-#include "messages.h"
+#include "platform.h"
+
+
+INTERNAL_FUNCTION const std::wstring
+ServiceState2String(DWORD currentState)
+{
+    std::wstring result;
+
+    switch (currentState) {
+    case SERVICE_CONTINUE_PENDING:
+        result = L"continue pending";
+        break;
+
+    case SERVICE_PAUSE_PENDING:
+        result = L"pause pending";
+        break;
+
+    case SERVICE_PAUSED:
+        result = L"paused";
+        break;
+
+    case SERVICE_RUNNING:
+        result = L"running";
+        break;
+
+    case SERVICE_START_PENDING:
+        result = L"start pending";
+        break;
+
+    case SERVICE_STOP_PENDING:
+        result = L"stop pending";
+        break;
+
+    case SERVICE_STOPPED:
+        result = L"stopped";
+        break;
+
+    default:
+        result = L"unrecognized";
+        break;
+    }
+
+    return result;
+}
 
 
 // A class that controls a Windows service (Win32Service object).
 template <class Service>
-class Win32ServiceCtrlT
+class Win32ServiceCtrlT : public Service
 {
 public:
 
@@ -42,16 +87,25 @@ public:
     DWORD deleteService();
     DWORD waitServiceStart(SERVICE_STATUS_PROCESS   &ss);
     DWORD waitServiceStop(SERVICE_STATUS_PROCESS &ss);
+    bool IsRegistered();
+    bool IsRunning();
+    void DebugLogServiceStatusProcess(const SERVICE_STATUS_PROCESS& ss);
 
 private:
     // Windows SCM and Service members
     SC_HANDLE       m_hSCM;
     SC_HANDLE       m_hService;
     Win32Service&   m_win32Svc;
+    bool            is_registered_;
+    bool            is_running_;
 
-    // Neither the copy constructor nor the assignment operator are implemented
-    Win32ServiceCtrlT(const Win32ServiceCtrlT& other);
-    Win32ServiceCtrlT& operator=(const Win32ServiceCtrlT& rhs);
+    // Neither the copy constructor nor the copy assignment operator are implemented.
+    Win32ServiceCtrlT(const Win32ServiceCtrlT& other) = delete;
+    Win32ServiceCtrlT& operator=(const Win32ServiceCtrlT& rhs) = delete;
+    
+    // Neither the move constructor nor the move assignment operator are implemented.
+    Win32ServiceCtrlT(Win32ServiceCtrlT&&) = delete;
+    Win32ServiceCtrlT& operator=(Win32ServiceCtrlT&&) = delete;
 
     DWORD openService();
     void  closeService();
@@ -65,12 +119,27 @@ private:
 
 template <class T>
 Win32ServiceCtrlT<T>::Win32ServiceCtrlT(Win32Service& win32Svc)
-    : m_hSCM(0), m_hService(0), m_win32Svc(win32Svc)
+    : m_hSCM(0), m_hService(0), m_win32Svc(win32Svc), is_registered_(false), is_running_(false)
 {
-    DWORD lastError;
+    SERVICE_STATUS_PROCESS  svcStatus;
+    DWORD                   dwBytesNeeded;
 
-    lastError = GetLastError();
+    // Determine if the service is registered, and if it's running.
+    is_registered_ = (ERROR_SUCCESS == openService()) && (0 != m_hService);
+
+
+    if (is_registered_) {
+        // see if the service is running
+        if (::QueryServiceStatusEx(m_hService,
+                                   SC_STATUS_PROCESS_INFO,
+                                   (LPBYTE)&svcStatus,
+                                   sizeof svcStatus,
+                                   &dwBytesNeeded)) {
+            is_running_ = (SERVICE_RUNNING == svcStatus.dwCurrentState);
+        }
+    }
 }
+
 
 // Open a handle to the Windows service
 template <class T>
@@ -163,15 +232,13 @@ DWORD Win32ServiceCtrlT<T>::startService()
         }
         else
         {
-            // log_trace(LOG_TRACE_INFO, "Service state = %d", ss.dwCurrentState);
-            // log_trace(LOG_TRACE_LOUD, "Service wait hint = %dms", ss.dwWaitHint);
+            DebugLogServiceStatusProcess(ss);
             // Check if the service is already running.
             if(ss.dwCurrentState != SERVICE_STOPPED
                && ss.dwCurrentState != SERVICE_STOP_PENDING)
             {
                 // no need to start a service that's running
                 // log_trace(LOG_TRACE_LOUD, "Service is already running (state=%d)", ss.dwCurrentState);
-                result = ERROR_SUCCESS;
             }
             else
             {
@@ -209,6 +276,7 @@ DWORD Win32ServiceCtrlT<T>::startService()
                         }
                         else
                         {
+                            const std::wstring startState = ServiceState2String(ss.dwCurrentState);
                             result = waitServiceStart(ss);
                         }
                     }
@@ -219,6 +287,8 @@ DWORD Win32ServiceCtrlT<T>::startService()
                 }
             }
         }
+    } else {
+        /// @todo doug: log "failed to open a handle to the service"
     }
 
     return result;
@@ -411,16 +481,17 @@ DWORD Win32ServiceCtrlT<T>::waitServiceStart(SERVICE_STATUS_PROCESS   &ss)
     DWORD   dwWaitTime;
     DWORD   dwBytesNeeded;
     DWORD   dwOldCheckPoint;
-    DWORD   startTickCount;
+    ULONGLONG   startTickCount;
 
     // Save the tick count and initial checkpoint.
-    startTickCount = GetTickCount();
+    startTickCount = GetTickCount64();
     dwOldCheckPoint = ss.dwCheckPoint;
 
-    // log_trace(LOG_TRACE_INFO, "Service wait hint is: %dms", ss.dwWaitHint);
-    // Do not wait longer than the wait hint. A good interval is
+    // Per the MSDN article "Starting a Service"
+    // (see https://msdn.microsoft.com/en-us/library/windows/desktop/ms686315(v=vs.85).aspx)
+    // do not wait longer than the wait hint. A good interval is
     // one-tenth the wait hint, but no less than 1 second and no
-    // more than 10 seconds.
+    // more than 10 seconds. All times are in milliseconds.
     dwWaitTime = ss.dwWaitHint / 10;
     if (dwWaitTime < 1000)
     {
@@ -448,32 +519,28 @@ DWORD Win32ServiceCtrlT<T>::waitServiceStart(SERVICE_STATUS_PROCESS   &ss)
                                   &dwBytesNeeded))                  // if buffer too small
         {
             result = GetLastError();
-            // log_trace_error("Query service status failed: 0x%08x", result);
-        }
-        else if (ss.dwCurrentState == SERVICE_RUNNING)
-        {
-            // log_trace(LOG_TRACE_NOTICE, "The service is running");
-            result = NO_ERROR;
-        }
-        else if ( ss.dwCheckPoint > dwOldCheckPoint )
-        {
-            // log_trace(LOG_TRACE_LOUD, "Updating checkpoint: %d", dwOldCheckPoint);
-            // Continue to wait and check.
-            startTickCount = GetTickCount();
-            dwOldCheckPoint = ss.dwCheckPoint;
+
         }
         else
         {
-            DWORD tickCount = GetTickCount() - startTickCount;
-            // log_trace(LOG_TRACE_LOUD, "Checking the tick counts (%d, %d)", startTickCount, tickCount);
-            if(tickCount > ss.dwWaitHint)
-            {
-                result = WAIT_TIMEOUT;
-                // trace_warning("The service failed to start after %d ticks (max=%d)", tickCount, ss.dwWaitHint);
-            }
-            else
-            {
-                // log_trace(LOG_TRACE_ANNOYING, "Still waiting for service to start...");
+            DebugLogServiceStatusProcess(ss);
+
+            if (ss.dwCurrentState == SERVICE_RUNNING) {
+                /// @todo doug: log the service is running
+            } else if (ss.dwCheckPoint > dwOldCheckPoint) {
+                /// @todo doug: log updating checkpoint
+
+                // Continue to wait and check.
+                startTickCount = GetTickCount64();
+                dwOldCheckPoint = ss.dwCheckPoint;
+            } else {
+                ULONGLONG tickCount = GetTickCount64() - startTickCount;
+
+                if (tickCount > ss.dwWaitHint) {
+                    result = WAIT_TIMEOUT;
+                } else {
+                    /// @todo doug: log waiting for service to start
+                }
             }
         }
     }
@@ -489,10 +556,10 @@ DWORD Win32ServiceCtrlT<T>::waitServiceStop(SERVICE_STATUS_PROCESS &ss)
     DWORD   dwWaitTime;
     DWORD   dwBytesNeeded;
     DWORD   dwOldCheckPoint;
-    DWORD   startTickCount;
+    ULONGLONG   startTickCount;
 
     // Save the tick count and initial checkpoint.
-    startTickCount = GetTickCount();
+    startTickCount = GetTickCount64();
     dwOldCheckPoint = ss.dwCheckPoint;
 
     // log_trace(LOG_TRACE_LOUD, "Current state = %d", ss.dwCurrentState);
@@ -513,7 +580,6 @@ DWORD Win32ServiceCtrlT<T>::waitServiceStop(SERVICE_STATUS_PROCESS &ss)
         {
             dwWaitTime = 10000;
         }
-        // log_trace(LOG_TRACE_LOUD, "Set wait time to %dms", dwWaitTime);
 
         // log_trace(LOG_TRACE_LOUD, "Set wait time to %dms", dwWaitTime);
         Sleep(dwWaitTime);
@@ -537,13 +603,12 @@ DWORD Win32ServiceCtrlT<T>::waitServiceStop(SERVICE_STATUS_PROCESS &ss)
         else if ( ss.dwCheckPoint > dwOldCheckPoint )
         {
             // Continue to wait and check.
-            // log_trace(LOG_TRACE_LOUD, "Updating checkpoint: %d", dwOldCheckPoint);
-            startTickCount = GetTickCount();
+            startTickCount = GetTickCount64();
             dwOldCheckPoint = ss.dwCheckPoint;
         }
         else
         {
-            DWORD tickCount = GetTickCount() - startTickCount;
+            ULONGLONG tickCount = GetTickCount64() - startTickCount;
             if(tickCount > ss.dwWaitHint)
             {
                 result = WAIT_TIMEOUT;
@@ -560,5 +625,36 @@ DWORD Win32ServiceCtrlT<T>::waitServiceStop(SERVICE_STATUS_PROCESS &ss)
 }   // Win32ServiceCtrlT<T>::waitServiceStop
 
 
-#define WIN32_SERVICECTRLT_H
-#endif
+template <class T>
+bool Win32ServiceCtrlT<T>::IsRunning()
+{
+    return is_running_;
+}   // Win32ServiceCtrlT<T>::IsRunning()
+
+
+template <class T>
+bool Win32ServiceCtrlT<T>::IsRegistered()
+{
+    return is_registered_;
+}
+
+
+template <class T>
+void Win32ServiceCtrlT<T>::DebugLogServiceStatusProcess(const SERVICE_STATUS_PROCESS& ss)
+{
+    /**
+      @todo doug: log the values of SERVICE_STATUS_PROCESS at 'debug' level:
+     
+        "SERVICE_STATUS_PROCESS {";
+        "  dwServiceType                    : " << ss.dwServiceType;
+        "  dwCurrentState                   : " << ss.dwCurrentState;
+        "  dwControlsAccepted               : " << ss.dwControlsAccepted;
+        "  dwWin32ExitCode                  : " << ss.dwWin32ExitCode;
+        "  dwServiceSpecificationExitCode   : " << ss.dwServiceSpecificExitCode;
+        "  dwCheckPoint                     : " << ss.dwCheckPoint;
+        "  dwWaitHint                       : " << ss.dwWaitHint;
+        "  dwProcessId                      : " << ss.dwProcessId;
+        "  dwServiceFlags                   : " << ss.dwServiceFlags;
+        "};";
+    */
+}

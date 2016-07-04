@@ -120,7 +120,8 @@ private:
     HANDLE          m_connectThread;
 
 public:
-    typedef Config_ Config;
+    typedef Config_                         Config;
+    typedef typename Config::Win32Service   Win32Service;
 
     AppT();
 
@@ -161,6 +162,13 @@ public:
     DWORD start();
     DWORD stop();
 
+    // Used by the Win32Service to give this Service a pointer to the generic
+    // service so this service can report events.
+    void setWin32Service(Win32Service *win32Svc)
+    {
+        m_win32Svc = win32Svc;
+    };
+
     DWORD svcCtrlPreShutdown(DWORD dwEventType,
                              LPVOID  lpEventData,
                              LPVOID  lpContext);
@@ -200,6 +208,12 @@ public:
                          LPVOID  lpEventData,
                          LPVOID  lpContext);
 
+    // No copy/move constructors nor copy/move assignment operators
+    AppT(const AppT& other) = delete;
+    AppT& operator=(AppT& rhs) = delete;
+    AppT(AppT&& other) = delete;
+    AppT& operator=(AppT&& rhs) = delete;
+
 protected:
     // Protected to ensure it's safe to make the destructor non-virtual. It's impossible to call delete on a
     // pointer to this class. The delete keyword can only be applied to pointers of derived classes (such as
@@ -208,11 +222,8 @@ protected:
     const std::wstring          m_serviceName;
     const std::wstring          m_displayName;
     const std::wstring          m_description;
+    Win32Service               *m_win32Svc;
 
-
-    // Neither the copy constructor nor the assignment operator are implemented
-    AppT(const AppT& other);
-    AppT& operator=(AppT& rhs);
 };
 
 void connectToNewClient();

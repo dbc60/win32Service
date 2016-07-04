@@ -104,7 +104,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);../../../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -140,7 +140,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);../../../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -153,12 +153,13 @@
     <ClCompile Include="..\..\..\src\win32_service.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\include\easyloggingT.h" />
+    <ClInclude Include="..\..\..\include\win32_serviceCtrlT.h" />
+    <ClInclude Include="..\..\..\include\win32_serviceT.h" />
     <ClInclude Include="..\..\..\src\platform.h" />
     <ClInclude Include="..\..\..\src\service_platform.h" />
     <ClInclude Include="..\..\..\src\win32_appT.h" />
     <ClInclude Include="..\..\..\src\win32_serviceConfig.h" />
-    <ClInclude Include="..\..\..\src\win32_serviceCtrlT.h" />
-    <ClInclude Include="..\..\..\src\win32_serviceT.h" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\..\..\src\wpce_messages.mc">
