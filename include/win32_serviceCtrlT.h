@@ -63,7 +63,7 @@ ServiceState2String(DWORD currentState)
 
 // A class that controls a Windows service (Win32Service object).
 template <class Service>
-class Win32ServiceCtrlT : public Service
+class Win32ServiceCtrlT
 {
 public:
 
