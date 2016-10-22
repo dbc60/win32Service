@@ -418,7 +418,7 @@ void WINAPI Win32ServiceT<T>::svcMain(DWORD dwArgc, LPWSTR *lpszArgv)
 
                     // Start the real service
                     st = start();
-                    if (SUCCEEDED(st))
+                    if (ERROR_SUCCESS == st)
                     {
                         st = svcReportStatus(SERVICE_RUNNING, NO_ERROR, 0);
                         /// @todo: log_trace(LOG_TRACE_NOTICE, "%ws is running", m_serviceName.c_str());
